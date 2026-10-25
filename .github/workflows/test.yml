@@ -1,0 +1,16 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  assistant:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: assistant
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+      - run: uv run pytest -q

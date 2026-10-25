@@ -1,0 +1,55 @@
+# Home server stack. Tailscale and Samba run on the host (see docs/setup.md), not here.
+# Versions are pinned so an update never happens by surprise; see "Updating" in docs/setup.md.
+services:
+  adguard:
+    image: adguard/adguardhome:v0.107.79
+    restart: unless-stopped
+    # Host network so DNS (port 53) sees real client IPs, not Docker's bridge IP.
+    network_mode: host
+    volumes:
+      - ./data/adguard/work:/opt/adguardhome/work
+      - ./data/adguard/conf:/opt/adguardhome/conf
+
+  jellyfin:
+    image: jellyfin/jellyfin:12.3
+    restart: unless-stopped
+    user: 1000:1000
+    ports:
+      - 8096:8096
+    environment:
+      TZ: ${TZ:-Asia/Kolkata}
+    volumes:
+      - ./data/jellyfin/config:/config
+      - ./data/jellyfin/cache:/cache
+      - /srv/share/media:/media:ro
+    # Hardware transcoding with the i3's iGPU. Uncomment only after the GT 710 is removed
+    # (while it's installed, /dev/dri is the GT 710, which Jellyfin can't use).
+    # group_add:
+    #   - "105" # render group id, from: getent group render
+    # devices:
+    #   - /dev/dri:/dev/dri
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.10.4
+    restart: unless-stopped
+    # Host network so Home Assistant can discover devices on the LAN.
+    network_mode: host
+    environment:
+      TZ: ${TZ:-Asia/Kolkata}
+    volumes:
+      - ./data/homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+
+  assistant:
+    build: ./assistant
+    restart: unless-stopped
+    # Host network so it reaches Home Assistant, Jellyfin and AdGuard on localhost.
+    network_mode: host
+    env_file: ./assistant/.env
+    volumes:
+      - assistant-data:/data
+      - /srv/share:/srv/share:ro # only read, for the disk-space report
+
+volumes:
+  assistant-data:
