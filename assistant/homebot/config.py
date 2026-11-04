@@ -19,6 +19,10 @@ class Config:
     discord_users: frozenset[int]
     app_logins: frozenset[str]
     app_port: int
+    voice_wake_word: str
+    voice_dir: str
+    voice_source: str
+    voice_sink: str
     ha_url: str
     ha_token: str
     jellyfin_url: str
@@ -58,6 +62,11 @@ def load() -> Config:
         discord_users=_user_ids("DISCORD_ALLOWED_USER_IDS"),
         app_logins=frozenset(x.strip() for x in env("APP_ALLOWED_LOGINS", "").split(",") if x.strip()),
         app_port=_port(env("APP_PORT", "8787")),
+        voice_wake_word=env("VOICE_WAKE_WORD", "").strip(),
+        voice_dir=env("VOICE_DIR", "voice"),
+        # Empty means the system's default microphone and speaker.
+        voice_source=env("VOICE_SOURCE", ""),
+        voice_sink=env("VOICE_SINK", ""),
         ha_url=env("HOME_ASSISTANT_URL", "http://localhost:8123").rstrip("/"),
         ha_token=env("HOME_ASSISTANT_TOKEN", ""),
         jellyfin_url=env("JELLYFIN_URL", "http://localhost:8096").rstrip("/"),
@@ -70,6 +79,9 @@ def load() -> Config:
         raise ConfigError("LLM_API_KEY is not set")
     if not cfg.llm_models:
         raise ConfigError("LLM_MODEL is empty")
-    if not cfg.telegram_token and not cfg.discord_token and not cfg.app_logins:
-        raise ConfigError("Enable at least one of TELEGRAM_BOT_TOKEN, DISCORD_BOT_TOKEN, APP_ALLOWED_LOGINS")
+    # It names a model file, so keep it to a plain name.
+    if cfg.voice_wake_word and not cfg.voice_wake_word.replace("_", "").isalpha():
+        raise ConfigError(f"VOICE_WAKE_WORD must be a model name like ivy or hey_jarvis, got {cfg.voice_wake_word!r}")
+    if not cfg.telegram_token and not cfg.discord_token and not cfg.app_logins and not cfg.voice_wake_word:
+        raise ConfigError("Enable at least one of TELEGRAM_BOT_TOKEN, DISCORD_BOT_TOKEN, APP_ALLOWED_LOGINS, VOICE_WAKE_WORD")
     return cfg

@@ -24,6 +24,7 @@ She is named after the Ivy Bridge CPU she runs on.
 - Show ad-blocking stats and pause ad blocking for a while
 - Search the Jellyfin library and list recent additions
 - Save notes and send reminders at a set time
+- Talk out loud through a Bluetooth speaker with a mic: wake word, local speech to text, spoken replies and spoken reminders
 
 Some exchanges (illustrative):
 
@@ -104,11 +105,13 @@ Every service runs in Docker Compose on the one machine. Ivy reaches Home Assist
 - **Every tool argument is validated.** Entity IDs, actions, brightness, colour names, colour temperature, pause duration and reminder times are checked in code before anything runs. Tool results are passed back as data, never as instructions. Why: model output is untrusted input.
 - **Bounded agent loop.** At most 6 model calls per message. A conversation starts fresh after 30 idle minutes or 60 messages. Why: cost and latency stay predictable, and a confused model can't loop forever.
 - **No open ports.** Remote access is Tailscale only, SSH accepts keys only, and the bot uses long polling rather than a public webhook. Why: an old home PC should not be reachable from the internet.
+- **Voice stays in the house.** The wake word, Whisper and Piper run on the server, and only speech that continues past the wake word becomes a request. Why: the mic is always on, so room audio must never leave the machine, and a Bluetooth headset mic is telephone quality, too muffled for Whisper to recognise the wake word itself.
 - **Plain, small stack.** Python with asyncio, SQLite for notes and reminders, pinned container versions. Why: fewer moving parts on modest hardware, and nothing updates by surprise.
 
 ## Tech stack
 
 - **Assistant:** Python 3.13, `openai` SDK (tool calling), python-telegram-bot, discord.py, httpx, aiohttp, psutil, SQLite
+- **Voice:** openWakeWord models on ONNX Runtime, faster-whisper, Piper, PipeWire
 - **Tooling:** uv, pytest, GitHub Actions
 - **Server:** Debian 13, Docker Compose, Tailscale, AdGuard Home, Jellyfin, Home Assistant, Samba
 
@@ -120,6 +123,7 @@ assistant/          Ivy, the Python assistant
     agent.py        conversation loop, model fallbacks, confirmations
     tools.py        tool definitions and argument validation
     channels.py     Telegram and Discord
+    voice.py        the speaker: wake word, Whisper, Piper
     app_api.py      JSON API for the planned app, reachable only through Tailscale
     store.py        notes and reminders in SQLite
     config.py       settings from environment variables
@@ -150,4 +154,4 @@ uv run --env-file .env python -m homebot
 ## Roadmap
 
 - **Cross-platform app (planned).** A Flutter app for phone and desktop to chat with Ivy outside Telegram. The assistant already has a small JSON API for it that is reachable only through `tailscale serve`.
-- **"Hey Ivy" voice assistant (planned).** Wake word, speech to text, and spoken replies, using the same agent and tools.
+- **"Ivy" wake word (in progress).** The voice channel works with the ready-made "Hey Jarvis" model; a custom "Ivy" model is trained on Colab (see docs/setup.md, section 8).

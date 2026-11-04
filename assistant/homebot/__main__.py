@@ -60,6 +60,12 @@ async def main() -> None:
             app = AppChannel(cfg.app_logins, agent, store, cfg.app_port)
             senders["app"] = app.send
             tasks.append(app.run())
+        if cfg.voice_wake_word:
+            from .voice import VoiceChannel  # Whisper and Piper are heavy; load them only when voice is on
+
+            voice = VoiceChannel(cfg, agent)
+            senders["voice"] = voice.send
+            tasks.append(voice.run())
         tasks.append(reminder_loop(store, senders))
         log.info("started with models %s on %s", ", ".join(cfg.llm_models), ", ".join(senders))
         await asyncio.gather(*tasks)

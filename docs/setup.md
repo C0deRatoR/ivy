@@ -9,7 +9,7 @@ How to turn an old PC into the home server Ivy runs on. Written for the hardware
 | Samba | Shared folders on the data disk | host | `smb://homeserver/share` |
 | Jellyfin | Media server for movies and shows | Docker | `http://homeserver:8096` |
 | Home Assistant | Smart-home hub | Docker | `http://homeserver:8123` |
-| Ivy | AI chat assistant that controls all of the above | Docker | Telegram / Discord |
+| Ivy | AI chat assistant that controls all of the above | Docker | Telegram / Discord / Bluetooth speaker |
 
 ## 0. Hardware prep
 
@@ -148,6 +148,63 @@ cd assistant
 uv run pytest
 uv run --env-file .env python -m homebot
 ```
+
+## 8. Ivy speaker (voice)
+
+Turns a Bluetooth speaker with a microphone into an Alexa-style speaker: say "Ivy, turn on the bedroom light" and she answers out loud. The wake word, speech to text (Whisper) and Ivy's voice (Piper) all run on the server; room audio never leaves it. Only the text of a request, after the wake word, goes to the LLM, the same as a Telegram message.
+
+Things to know first:
+- The speaker has to stay in Bluetooth headset mode (HSP/HFP) to use its mic, which makes it mono and call quality. Fine for Ivy's voice, poor for music.
+- Anyone in the room can talk to Ivy. Risky actions still need a spoken "yes".
+- The H61 board has no Bluetooth. A USB adapter with a **Realtek RTL8761B** chip ("Bluetooth 5.0 USB adapter") works with Debian's `firmware-realtek`.
+
+**Host: Bluetooth and PipeWire.** The container plays and records through the host's PipeWire, which needs to run without anyone logged in:
+
+```sh
+sudo apt install firmware-realtek bluez pipewire pipewire-pulse wireplumber libspa-0.2-bluetooth pulseaudio-utils
+sudo loginctl enable-linger $USER   # start your user services (PipeWire) at boot, without a login
+sudo reboot
+```
+
+**Pair the speaker.** Put it in pairing mode, then:
+
+```sh
+bluetoothctl
+  scan on              # wait for the speaker to appear, note its MAC
+  pair <MAC>
+  trust <MAC>          # so it reconnects by itself after a power cut
+  connect <MAC>
+  quit
+pactl list cards | grep -A8 'Profiles:'      # needs a headset-head-unit profile
+pactl set-card-profile bluez_card.<MAC with _ instead of :> headset-head-unit
+pactl list short sources; pactl list short sinks   # note the bluez_input... and bluez_output... names
+```
+
+**Turn it on.** In `assistant/.env` set `VOICE_WAKE_WORD=hey_jarvis` (a ready-made stand-in until the Ivy model exists), and `VOICE_SOURCE` / `VOICE_SINK` to the `bluez_input...` and `bluez_output...` names. In `docker-compose.yml`, uncomment the PipeWire socket line and `PULSE_SERVER` under `assistant`. Then:
+
+```sh
+docker compose up -d --build assistant
+docker compose logs -f assistant   # the first start downloads about 220 MB of models into the assistant-data volume
+```
+
+Say "Hey Jarvis, what time is it?". If you say only the wake word, she chimes and listens for the request. After she asks "Should I do this?", she chimes again for your "yes".
+
+**Train the "Ivy" wake word (one time, about an hour, free).** "Ivy" has no ready-made model, so train one with openWakeWord's Colab notebook. It generates thousands of synthetic "Ivy" clips and needs no recordings of you.
+
+1. Open the [openWakeWord training notebook](https://colab.research.google.com/drive/1q1oe2zOyZp7UsB3jJiQ1IFn8z5YfjwEb?usp=sharing) while signed in to Google, then **File → Save a copy in Drive**.
+2. **Runtime → Change runtime type → T4 GPU.**
+3. Set the target word to `ivy`. Play the pronunciation sample the notebook makes; if it sounds wrong, try `eye vee`. Keep the other settings at their defaults.
+4. **Runtime → Run all**, and wait (about an hour). Download the `.onnx` file it produces and rename it `ivy.onnx`.
+5. Copy it to the server and switch over:
+
+   ```sh
+   scp ivy.onnx <user>@<server-ip>:~/homeserver/
+   docker compose cp ivy.onnx assistant:/data/voice/ivy.onnx
+   ```
+
+   Set `VOICE_WAKE_WORD=ivy` in `assistant/.env`, then `docker compose up -d assistant`.
+
+A short word like "Ivy" wakes by mistake more often than a longer phrase, and a Bluetooth headset mic is telephone quality (nothing above 4 kHz), which makes it worse. Whisper can't reliably hear the wake word itself through that mic, so Ivy trusts the wake word detector and treats whatever is said right after it as the request. A false wake therefore gets a reply now and then. If she answers when she shouldn't, or misses you, change `WAKE_THRESHOLD` in `assistant/homebot/voice.py` (default 0.5; higher means stricter). A USB microphone on the server gives full-quality audio and fewer mistakes, and lets the speaker stay in music-quality mode.
 
 ## Updating
 

@@ -18,6 +18,7 @@ def _cfg(**overrides: str) -> Config:
         llm_api_key="k", llm_base_url="http://llm", llm_models=("m",), timezone="UTC", db_path=":memory:",
         telegram_token="t", telegram_users=frozenset({1}), discord_token="", discord_users=frozenset(),
         app_logins=frozenset(), app_port=8787,
+        voice_wake_word="", voice_dir="voice", voice_source="", voice_sink="",
         ha_url="http://ha", ha_token="tok", jellyfin_url="http://jf", jellyfin_key="",
         adguard_url="http://ag", adguard_user="", adguard_password="",
     )

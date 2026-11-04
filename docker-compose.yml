@@ -50,6 +50,12 @@ services:
     volumes:
       - assistant-data:/data
       - /srv/share:/srv/share:ro # only read, for the disk-space report
+      # Ivy speaker: the host's PipeWire (PulseAudio protocol) socket. Uncomment only once
+      # PipeWire runs on the host (docs/setup.md, section 8); otherwise Docker creates an
+      # empty directory where the socket belongs. 1000 is the host user's uid and the container's.
+      # - /run/user/1000/pulse/native:/run/user/1000/pulse/native
+    # environment:
+    #   PULSE_SERVER: unix:/run/user/1000/pulse/native
 
 volumes:
   assistant-data:
