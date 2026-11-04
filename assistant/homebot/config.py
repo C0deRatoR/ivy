@@ -79,9 +79,8 @@ def load() -> Config:
         raise ConfigError("LLM_API_KEY is not set")
     if not cfg.llm_models:
         raise ConfigError("LLM_MODEL is empty")
-    # It names a model file, so keep it to a plain name.
-    if cfg.voice_wake_word and not cfg.voice_wake_word.replace("_", "").isalpha():
-        raise ConfigError(f"VOICE_WAKE_WORD must be a model name like ivy or hey_jarvis, got {cfg.voice_wake_word!r}")
+    if cfg.voice_wake_word and not cfg.voice_wake_word.isalpha():
+        raise ConfigError(f"VOICE_WAKE_WORD must be one word, like ivy, got {cfg.voice_wake_word!r}")
     if not cfg.telegram_token and not cfg.discord_token and not cfg.app_logins and not cfg.voice_wake_word:
         raise ConfigError("Enable at least one of TELEGRAM_BOT_TOKEN, DISCORD_BOT_TOKEN, APP_ALLOWED_LOGINS, VOICE_WAKE_WORD")
     return cfg

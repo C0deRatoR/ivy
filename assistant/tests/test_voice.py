@@ -1,23 +1,23 @@
 import pytest
 
-from homebot.voice import strip_wake_word
+from homebot.voice import addressed
 
 
 @pytest.mark.parametrize(
-    ("text", "wake_word", "command"),
+    ("text", "command"),
     [
-        ("Ivy, turn on the bedroom light.", "ivy", "turn on the bedroom light."),
-        ("Hey Ivy what time is it", "ivy", "what time is it"),
-        ("Ivy.", "ivy", ""),
-        ("Hey Jarvis, pause ad blocking", "hey_jarvis", "pause ad blocking"),
-        ("hey, jarvis... lights off", "hey_jarvis", "lights off"),
-        # Whisper missed or garbled the wake word: the whole transcript is the request.
-        ("What time is it?", "hey_jarvis", "What time is it?"),
-        ("These are this what time is it?", "hey_jarvis", "These are this what time is it?"),
-        # Whole words only.
-        ("Check the ivyleague results", "ivy", "Check the ivyleague results"),
-        ("", "ivy", ""),
+        ("Ivy, turn on the bedroom light.", "turn on the bedroom light."),
+        ("Hey Ivy what time is it", "what time is it"),
+        ("Hi Ivy. It was hand blocking.", "It was hand blocking."),
+        ("okay, ivy... lights off", "lights off"),
+        ("Ivy.", ""),
+        # Not talking to Ivy: room talk, a mention mid-sentence, or a near miss.
+        ("I return on the bedroom light.", None),
+        ("I told Ivy to turn the light on", None),
+        ("The light is the light.", None),
+        ("Ivyleague results are out", None),
+        ("", None),
     ],
 )
-def test_strip_wake_word(text: str, wake_word: str, command: str) -> None:
-    assert strip_wake_word(text, wake_word) == command
+def test_addressed(text: str, command: str | None) -> None:
+    assert addressed(text, "ivy") == command
