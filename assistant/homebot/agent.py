@@ -78,6 +78,13 @@ class Agent:
         convo = self._convos.get(chat_key)
         return convo is not None and convo.pending is not None
 
+    def pending_descriptions(self, chat_key: str) -> list[str]:
+        """What is waiting for the user's yes, one line per risky action; empty when nothing is."""
+        convo = self._convos.get(chat_key)
+        if convo is None or not convo.pending:
+            return []
+        return [_describe(c) for c in convo.pending if c.name in NEEDS_CONFIRMATION]
+
     def _conversation(self, chat_key: str) -> Conversation:
         convo = self._convos.get(chat_key)
         now = time.monotonic()

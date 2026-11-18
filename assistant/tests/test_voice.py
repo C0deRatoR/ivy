@@ -1,6 +1,6 @@
 import pytest
 
-from homebot.voice import addressed
+from homebot.voice import addressed, question
 
 
 @pytest.mark.parametrize(
@@ -21,3 +21,7 @@ from homebot.voice import addressed
 )
 def test_addressed(text: str, command: str | None) -> None:
     assert addressed(text, "ivy") == command
+
+
+def test_confirmations_are_one_short_question() -> None:
+    assert question(["Pause ad blocking for 1 minute"]) == "Do you want to pause ad blocking for 1 minute?"

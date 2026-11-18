@@ -105,13 +105,13 @@ Every service runs in Docker Compose on the one machine. Ivy reaches Home Assist
 - **Every tool argument is validated.** Entity IDs, actions, brightness, colour names, colour temperature, pause duration and reminder times are checked in code before anything runs. Tool results are passed back as data, never as instructions. Why: model output is untrusted input.
 - **Bounded agent loop.** At most 6 model calls per message. A conversation starts fresh after 30 idle minutes or 60 messages. Why: cost and latency stay predictable, and a confused model can't loop forever.
 - **No open ports.** Remote access is Tailscale only, SSH accepts keys only, and the bot uses long polling rather than a public webhook. Why: an old home PC should not be reachable from the internet.
-- **Voice stays in the house, and Whisper is the wake word.** Whisper and Piper run on the server; Whisper transcribes what's said near the mic, and only a sentence that starts with "Ivy" becomes a request. Why: the mic is always on, so room audio must never leave the machine. Off-the-shelf wake-word models barely recognised the owner's voice, while Whisper heard "Ivy" every time, at the cost of transcribing all room talk.
+- **Voice stays in the house, and Whisper is the wake word.** Whisper and Kokoro run on the server; Whisper transcribes what's said near the mic, and only a sentence that starts with "Ivy" becomes a request. Why: the mic is always on, so room audio must never leave the machine. Off-the-shelf wake-word models barely recognised the owner's voice, while Whisper heard "Ivy" every time, at the cost of transcribing all room talk.
 - **Plain, small stack.** Python with asyncio, SQLite for notes and reminders, pinned container versions. Why: fewer moving parts on modest hardware, and nothing updates by surprise.
 
 ## Tech stack
 
 - **Assistant:** Python 3.13, `openai` SDK (tool calling), python-telegram-bot, discord.py, httpx, aiohttp, psutil, SQLite
-- **Voice:** faster-whisper, Piper, PipeWire
+- **Voice:** faster-whisper, Kokoro (kokoro-onnx), PipeWire
 - **Tooling:** uv, pytest, GitHub Actions
 - **Server:** Debian 13, Docker Compose, Tailscale, AdGuard Home, Jellyfin, Home Assistant, Samba
 
@@ -123,7 +123,7 @@ assistant/          Ivy, the Python assistant
     agent.py        conversation loop, model fallbacks, confirmations
     tools.py        tool definitions and argument validation
     channels.py     Telegram and Discord
-    voice.py        the speaker: Whisper listens for "Ivy", Piper answers
+    voice.py        the speaker: Whisper listens for "Ivy", Kokoro answers
     app_api.py      JSON API for the planned app, reachable only through Tailscale
     store.py        notes and reminders in SQLite
     config.py       settings from environment variables

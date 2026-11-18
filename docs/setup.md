@@ -151,7 +151,7 @@ uv run --env-file .env python -m homebot
 
 ## 8. Ivy speaker (voice)
 
-Talk to Ivy like Alexa: say "Ivy, turn on the bedroom light" and she answers out loud through a speaker. Speech to text (Whisper) and Ivy's voice (Piper) run on the server, so room audio never leaves it. Whisper transcribes everything said near the mic, but only a sentence that starts with "Ivy" (or "Hey Ivy") goes to the LLM, the same as a Telegram message.
+Talk to Ivy like Alexa: say "Ivy, turn on the bedroom light" and she answers out loud through a speaker. Speech to text (Whisper) and Ivy's voice (Kokoro, the American "Heart" voice) run on the server, so room audio never leaves it. Whisper transcribes everything said near the mic, but only a sentence that starts with "Ivy" (or "Hey Ivy") goes to the LLM, the same as a Telegram message.
 
 Things to know first:
 - **Use a USB microphone.** A Bluetooth speaker's own mic only works in headset mode, which is telephone quality: Whisper still catches "Ivy" through it, but often garbles the request ("pause ad blocking" came out as "one side of looking"). It also makes the speaker mono and call quality. With a USB mic, the Bluetooth speaker stays in music-quality mode and is only used for Ivy's voice.
@@ -185,10 +185,10 @@ To use the speaker's own mic instead of a USB one, switch it to headset mode fir
 
 ```sh
 docker compose up -d --build assistant
-docker compose logs -f assistant   # the first start downloads about 210 MB of models into the assistant-data volume
+docker compose logs -f assistant   # the first start downloads about 490 MB of models (Whisper, Kokoro) into the assistant-data volume
 ```
 
-Say "Ivy, what time is it?". If you say only "Ivy", she chimes and listens for the request. After she asks "Should I do this?", she chimes again for your "yes".
+Say "Ivy, what time is it?". If you say only "Ivy", she chimes and listens for the request. When an action needs a yes, she asks one short question, like "Do you want to pause ad blocking for 1 minute?", then chimes and listens for your yes or no.
 
 ## Updating
 

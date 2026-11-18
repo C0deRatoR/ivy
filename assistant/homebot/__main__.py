@@ -37,6 +37,8 @@ async def reminder_loop(store: Store, senders: dict[str, Sender]) -> None:
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)  # it logs every URL, including the bot token
+    # Kokoro's phonemizer warns on most sentences with numbers or times; the speech is fine.
+    logging.getLogger("phonemizer").setLevel(logging.ERROR)
     try:
         cfg = config.load()
     except config.ConfigError as e:
@@ -61,7 +63,7 @@ async def main() -> None:
             senders["app"] = app.send
             tasks.append(app.run())
         if cfg.voice_wake_word:
-            from .voice import VoiceChannel  # Whisper and Piper are heavy; load them only when voice is on
+            from .voice import VoiceChannel  # Whisper and Kokoro are heavy; load them only when voice is on
 
             voice = VoiceChannel(cfg, agent)
             senders["voice"] = voice.send

@@ -194,3 +194,17 @@ def test_bad_request_is_not_retried_on_other_models() -> None:
     agent, llm, _ = _agent([openai.BadRequestError("bad", response=response, body=None)], models=("a", "b"))
     asyncio.run(agent.handle("telegram:1", "hi"))
     assert llm.models == ["a"]
+
+
+def test_pending_descriptions_list_what_waits_for_yes() -> None:
+    call = _tool_call("adguard_pause", {"minutes": 1})
+    agent, llm, requests = _agent([_reply(tool_calls=[call]), _reply("Paused.")])
+
+    async def chat() -> tuple[list[str], list[str]]:
+        await agent.handle("voice:speaker", "pause ads for a minute")
+        waiting = agent.pending_descriptions("voice:speaker")
+        await agent.handle("voice:speaker", "Yes.")
+        return waiting, agent.pending_descriptions("voice:speaker")
+
+    assert asyncio.run(chat()) == (["Pause ad blocking for 1 minute"], [])
+    assert [r.url.path for r in requests] == ["/control/protection"]

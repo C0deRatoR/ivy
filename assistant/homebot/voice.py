@@ -1,4 +1,4 @@
-"""Ivy on a speaker: Whisper listens for her name, the agent answers, and Piper speaks.
+"""Ivy on a speaker: Whisper listens for her name, the agent answers, and Kokoro speaks.
 
 Audio goes through pacat (PulseAudio's client; PipeWire serves the same protocol). Everything
 runs locally: room speech is transcribed on the server, and only a request that starts with
@@ -18,7 +18,7 @@ import httpx
 import numpy as np
 from faster_whisper import WhisperModel
 from faster_whisper.vad import VadOptions, get_speech_timestamps
-from piper import PiperVoice
+from kokoro_onnx import Kokoro
 
 from .agent import Agent
 from .config import Config
@@ -34,8 +34,10 @@ MAX_CHUNKS = 125  # 10 s cap on one sentence
 END_SILENCE = int(0.8 * RATE)  # quiet after speech that ends a sentence
 NO_REPLY_CHUNKS = 32  # after the chime, give up this soon (2.5 s) if nobody speaks
 
-PIPER_VOICE = "en_US-lessac-medium"
-PIPER_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/"
+# Kokoro sounds far more natural than Piper, at a few times the CPU. "Heart" is an American voice.
+KOKORO_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
+KOKORO_MODEL, KOKORO_VOICES = "kokoro-v1.0.onnx", "voices-v1.0.bin"
+KOKORO_VOICE = "af_heart"
 WHISPER_MODEL = "base.en"
 
 _t = np.arange(int(0.15 * RATE)) / RATE
@@ -57,6 +59,11 @@ def addressed(text: str, wake_word: str) -> str | None:
     return text[match.end() :].strip() if match else None
 
 
+def question(actions: list[str]) -> str:
+    """A short spoken yes/no question for actions waiting to be confirmed."""
+    return "Do you want to " + " and ".join(a[:1].lower() + a[1:] for a in actions) + "?"
+
+
 def _fetch(url: str, path: Path) -> None:
     if path.exists():
         return
@@ -74,11 +81,11 @@ class VoiceChannel:
     def __init__(self, cfg: Config, agent: Agent) -> None:
         models = Path(cfg.voice_dir)
         models.mkdir(parents=True, exist_ok=True)
-        for name in (f"{PIPER_VOICE}.onnx", f"{PIPER_VOICE}.onnx.json"):
-            _fetch(PIPER_URL + name, models / name)
+        for name in (KOKORO_VOICES, KOKORO_MODEL):
+            _fetch(KOKORO_URL + name, models / name)
 
         self.whisper = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8", download_root=str(models / "whisper"))
-        self.piper = PiperVoice.load(models / f"{PIPER_VOICE}.onnx")
+        self.kokoro = Kokoro(str(models / KOKORO_MODEL), str(models / KOKORO_VOICES))
         self.agent = agent
         self.wake_word = cfg.voice_wake_word
         # Without this hint Whisper often hears "Ivy, turn" as "I return". It sometimes echoes the
@@ -97,13 +104,14 @@ class VoiceChannel:
         await self.say(text)
 
     async def say(self, text: str) -> None:
-        # Piper would read markdown out ("asterisk asterisk"), and emoji like ⏰ have no sound.
+        # Kokoro would read markdown out ("asterisk asterisk"), and emoji like ⏰ have no sound.
         spoken = "".join(c for c in text if c not in "*#_`" and unicodedata.category(c) != "So")
 
-        def synthesize() -> bytes:
-            return b"".join(chunk.audio_int16_bytes for chunk in self.piper.synthesize(spoken))
+        def synthesize() -> tuple[bytes, int]:
+            audio, rate = self.kokoro.create(spoken, voice=KOKORO_VOICE, lang="en-us")
+            return (np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes(), rate
 
-        await self._play(await asyncio.to_thread(synthesize), self.piper.config.sample_rate)
+        await self._play(*await asyncio.to_thread(synthesize))
 
     async def _record(self) -> None:
         cmd = ["pacat", "--record", "--raw", "--format=s16le", f"--rate={RATE}", "--channels=1", "--latency-msec=80", *self.source]
@@ -129,8 +137,12 @@ class VoiceChannel:
                 if not command:  # just "Ivy", then a pause
                     command = await self._listen_again()
                 while command:
-                    await self.say(await self.agent.handle(CHAT_KEY, command))
-                    command = await self._listen_again() if self.agent.awaiting_confirmation(CHAT_KEY) else ""
+                    log.info("heard request: %s", command)
+                    reply = await self.agent.handle(CHAT_KEY, command)
+                    # Out loud, the chat's "Should I do this? • ... Reply yes" becomes one short question.
+                    asks = self.agent.pending_descriptions(CHAT_KEY)
+                    await self.say(question(asks) if asks else reply)
+                    command = await self._listen_again() if asks else ""
             except Exception:
                 # One failed request must not stop the speaker from listening.
                 log.exception("voice request failed")

@@ -48,7 +48,8 @@ def _tool(
 def describe(name: str, args: dict[str, object]) -> str:
     """One line a person can read when asked to confirm a tool call."""
     if name == "adguard_pause":
-        return f"Pause ad blocking for {args.get('minutes')} minutes"
+        minutes = args.get("minutes")
+        return f"Pause ad blocking for {minutes} minute{'' if minutes == 1 else 's'}"
     return f"{name} {json.dumps(args)}"
 
 
